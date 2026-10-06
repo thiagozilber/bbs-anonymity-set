@@ -1,0 +1,42 @@
+# Example Issuer deployment policy for the age-verification domain.
+#
+# Illustrative only: the attribute names loosely follow EUDI PID naming, but
+# the thesis schema is not fixed here. Each point in a parameter sweep is one
+# file like this.
+
+[header]
+# Rendered per credential and signed as UTF-8. One header value per issuing
+# country; use a template with no {placeholders} for a single global value.
+template = "pid-age/v1/{issuing_country}"
+
+[schema]
+# "omit": a Prover without an optional attribute gets a shorter message array.
+# "pad":  the slot is signed as "<name>=" so every credential has the same L.
+absent_optional = "omit"
+
+# Message-index order.
+[[schema.fields]]
+name = "family_name"
+
+[[schema.fields]]
+name = "given_name"
+
+[[schema.fields]]
+name = "birth_date"
+
+[[schema.fields]]
+name = "age_over_18"
+
+[[schema.fields]]
+name = "nationality"
+
+[[schema.fields]]
+name = "resident_country"
+optional = true
+
+[[schema.fields]]
+name = "resident_city"
+optional = true
+
+[[schema.fields]]
+name = "issuing_country"
