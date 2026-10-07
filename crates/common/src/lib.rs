@@ -199,11 +199,48 @@ pub fn read_json<T: DeserializeOwned>(path: &Path) -> Result<T> {
 
 pub fn write_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     let file = File::create(path).with_context(|| format!("creating {}", path.display()))?;
+    write_pretty(file, value)
+}
+
+/// Like [`write_json`], but only the owner can read or write the file (mode
+/// 0600 on Unix). Use it for anything holding secret key material.
+pub fn write_json_private<T: Serialize>(path: &Path, value: &T) -> Result<()> {
+    let file = create_private(path).with_context(|| format!("creating {}", path.display()))?;
+    write_pretty(file, value)
+}
+
+fn write_pretty<T: Serialize>(file: File, value: &T) -> Result<()> {
     let mut writer = BufWriter::new(file);
     serde_json::to_writer_pretty(&mut writer, value)?;
     writer.write_all(b"\n")?;
     writer.flush()?;
     Ok(())
+}
+
+/// Creates or truncates `path` with mode 0600.
+///
+/// The mode given to `open` only applies when the file is created, so an
+/// existing file (e.g. `keygen --force`) is also chmod-ed. That happens after
+/// truncation and before any write, so the old permissions never cover new
+/// key material.
+#[cfg(unix)]
+fn create_private(path: &Path) -> std::io::Result<File> {
+    use std::fs::{OpenOptions, Permissions};
+    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+    let file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(path)?;
+    file.set_permissions(Permissions::from_mode(0o600))?;
+    Ok(file)
+}
+
+/// Permissions are not restricted on non-Unix platforms.
+#[cfg(not(unix))]
+fn create_private(path: &Path) -> std::io::Result<File> {
+    File::create(path)
 }
 
 /// Reads a JSON Lines file. Blank lines are skipped.

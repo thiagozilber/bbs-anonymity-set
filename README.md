@@ -37,8 +37,8 @@ issuer issue --config configs/examples/pid-age.toml --key out/issuer-0.key.json 
              --population data/examples/population.jsonl --out out/credentials.jsonl
 ```
 
-`keygen` writes `<key-id>.key.json` (contains the secret key) and
-`<key-id>.pub.json`. `issue` verifies every signature after signing unless
+`keygen` writes `<key-id>.key.json` (contains the secret key; created with
+mode 0600 on Unix) and `<key-id>.pub.json`. `issue` verifies every signature after signing unless
 `--no-verify` is passed, and prints the number of credentials per header value
 and per message count.
 

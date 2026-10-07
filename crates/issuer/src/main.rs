@@ -2,7 +2,7 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use common::{
     Ciphersuite, IssuerKeyFile, PopulationRecord, bbs, read_json, read_jsonl, write_json,
-    write_jsonl,
+    write_json_private, write_jsonl,
 };
 use issuer::config::IssuerConfig;
 use issuer::{IssuanceSummary, Issuer};
@@ -122,7 +122,7 @@ fn keygen(
             bail!("{} exists; pass --force to overwrite", path.display());
         }
     }
-    write_json(&secret_path, &key_file)?;
+    write_json_private(&secret_path, &key_file)?;
     write_json(&public_path, &key_file.public())?;
     eprintln!(
         "wrote {} and {}",

@@ -130,3 +130,20 @@ fn seeded_keygen_is_reproducible_and_does_not_overwrite() {
     let second: PublicKeyFile = read_json(&dir.join("issuer-0.pub.json")).unwrap();
     assert_eq!(first, second);
 }
+
+#[cfg(unix)]
+#[test]
+fn secret_key_file_is_owner_only() {
+    use std::os::unix::fs::PermissionsExt;
+    let mode = |p: &Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+
+    let dir = scratch("perms");
+    let secret = dir.join("issuer-0.key.json");
+    assert!(keygen(&dir, &[]).status.success());
+    assert_eq!(mode(&secret), 0o600);
+
+    // An existing world-readable key file is tightened when overwritten.
+    std::fs::set_permissions(&secret, std::fs::Permissions::from_mode(0o644)).unwrap();
+    assert!(keygen(&dir, &["--force"]).status.success());
+    assert_eq!(mode(&secret), 0o600);
+}

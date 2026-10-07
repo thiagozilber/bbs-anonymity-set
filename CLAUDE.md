@@ -63,6 +63,9 @@ observer, analysis (Python). Only the Issuer exists so far.
   before every commit.
 - Anything that crosses a process boundary (keys, population, credentials) is
   a type in `crates/common` and is written as JSON or JSON Lines.
+- Files holding secret key material are written with `write_json_private`
+  (mode 0600), never `write_json`.
+- Commits carry no Claude co-author or session trailers.
 - New crates go under `crates/`; the workspace picks them up automatically.
 - Thiago writes the thesis prose himself. Code comments and docs here should
   state things plainly.
