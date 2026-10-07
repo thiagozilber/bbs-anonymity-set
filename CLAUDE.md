@@ -15,7 +15,9 @@ there is no classifier. The ML branch and all network-layer (Layer 1) features
 are deferred to TCC II.
 
 Planned components: population generator (Python), Issuer, Prover, Verifier
-observer, analysis (Python). Only the Issuer exists so far.
+observer, analysis (Python). The Issuer is done; the Prover has only `check`
+(the draft's `Verify` on received credentials). Presentation generation is the
+next Prover step.
 
 ## Decisions
 

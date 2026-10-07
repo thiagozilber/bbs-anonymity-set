@@ -398,6 +398,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "prover"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "common",
+ "hex",
+ "issuer",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"

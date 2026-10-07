@@ -1,0 +1,17 @@
+[package]
+name = "prover"
+version = "0.1.0"
+description = "Prover CLI: checks issued credentials; presentation generation to follow"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+common.workspace = true
+hex.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+
+[dev-dependencies]
+# Tests issue real credentials in-process rather than shipping fixtures.
+issuer = { path = "../issuer" }

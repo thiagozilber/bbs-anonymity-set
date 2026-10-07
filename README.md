@@ -11,7 +11,7 @@ header).
 |---|---|---|
 | `crates/common` | Types shared by all roles (key files, population and credential records, message encoding) and the wrapper over ZKryptium | done |
 | `crates/issuer` | Issuer CLI: key generation and issuance | done |
-| `crates/prover` | Presentation generation under a disclosure policy | not started |
+| `crates/prover` | Prover CLI: credential check; presentation generation under a disclosure policy to follow | `check` only |
 | `crates/verifier` | Verification and observation-tuple logging | not started |
 | `analysis/` | Python: population generator, partition analysis | not started |
 | `configs/examples/` | Example deployment policies | |
@@ -38,9 +38,23 @@ issuer issue --config configs/examples/pid-age.toml --key out/issuer-0.key.json 
 ```
 
 `keygen` writes `<key-id>.key.json` (contains the secret key; created with
-mode 0600 on Unix) and `<key-id>.pub.json`. `issue` verifies every signature after signing unless
-`--no-verify` is passed, and prints the number of credentials per header value
-and per message count.
+mode 0600 on Unix) and `<key-id>.pub.json`. `issue` verifies every signature
+after signing unless `--no-verify` is passed, and prints the number of
+credentials per header value and per message count.
+
+## Prover
+
+```sh
+# Verify issued credentials against the Issuer's public key, as a Prover does on receipt.
+prover check --public-key out/issuer-0.pub.json --credentials out/credentials.jsonl
+```
+
+Runs the draft's `Verify` on every credential, lists each one that fails with
+its `prover_id`, and exits non-zero if any fail. This checks the Issuer's
+signature; it is not presentation verification (`ProofVerify`), which belongs
+to the Verifier.
+
+## Issuer details
 
 ### Deployment policy (`--config`)
 
