@@ -21,6 +21,9 @@ New crates under `crates/` join the workspace automatically.
 
 ## Build and test
 
+Needs Rust 1.85 or newer (edition 2024). Install or update it with
+[rustup](https://rustup.rs); OS packages such as apt's `cargo` are usually too old.
+
 ```sh
 cargo test
 cargo build --release

@@ -3,6 +3,7 @@ name = "common"
 version = "0.1.0"
 description = "Types and encodings shared by the Issuer, Prover and Verifier"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
