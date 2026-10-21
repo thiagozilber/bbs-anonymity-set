@@ -2,60 +2,65 @@
 
 Measurement harness for the TCC: how far a compliant BBS credential deployment
 narrows a Prover population, using only what a Verifier computes while
-verifying a presentation (U, the message count, the disclosed index set and the
-header).
+verifying a presentation (U, the statement count, the disclosed index set and
+the header). Credentials use the W3C `bbs-2023` Data Integrity cryptosuite,
+through Digital Bazaar's implementation.
 
 ## Layout
 
 | Path | Contents | Status |
 |---|---|---|
-| `crates/common` | Types shared by all roles (key files, population and credential records, message encoding) and the wrapper over ZKryptium | done |
-| `crates/issuer` | Issuer CLI: key generation and issuance | done |
-| `crates/prover` | Prover CLI: credential check; presentation generation under a disclosure policy to follow | `check` only |
-| `crates/verifier` | Verification and observation-tuple logging | not started |
+| `packages/common` | Types shared by all roles (key files, population and credential records), the JSON-LD context and offline document loader, and the typed wrappers over Digital Bazaar's libraries | done |
+| `packages/issuer` | Issuer CLI: key generation and issuance | done |
+| `packages/prover` | Prover CLI: base-proof check; presentation generation under a disclosure policy to follow | `check` only |
+| `packages/verifier` | Presentation verification and observation-tuple logging | not started |
 | `analysis/` | Python: population generator, partition analysis | not started |
 | `configs/examples/` | Example deployment policies | |
 | `data/examples/` | Example population | |
 
-New crates under `crates/` join the workspace automatically.
-
 ## Build and test
 
-Needs Rust 1.85 or newer (edition 2024). Install or update it with
-[rustup](https://rustup.rs); OS packages such as apt's `cargo` are usually too old.
+Needs Node.js 22.18 or newer, which runs TypeScript directly (type
+stripping), so there is no build step.
 
 ```sh
-cargo test
-cargo build --release
+npm install
+npm run check        # typecheck, then all tests
+npm test             # tests only (vitest)
 ```
 
 ## Issuer
 
 ```sh
 # Key pair. --seed gives a reproducible key for experiments; omit it for a random one.
-issuer keygen --key-id issuer-0 --out-dir out [--seed <hex, >= 32 octets>] [--ciphersuite BLS12-381-SHA-256]
+npm run issuer -- keygen --key-id issuer-0 --out-dir out [--seed <hex, >= 32 octets>] [--controller <url>]
 
 # One credential per population record.
-issuer issue --config configs/examples/pid-age.toml --key out/issuer-0.key.json \
-             --population data/examples/population.jsonl --out out/credentials.jsonl
+npm run issuer -- issue --config configs/examples/pid-age.toml --key out/issuer-0.key.json \
+                        --population data/examples/population.jsonl --out out/credentials.jsonl
 ```
 
 `keygen` writes `<key-id>.key.json` (contains the secret key; created with
-mode 0600 on Unix) and `<key-id>.pub.json`. `issue` verifies every signature
-after signing unless `--no-verify` is passed, and prints the number of
-credentials per header value and per message count.
+mode 0600) and `<key-id>.pub.json`. The Issuer's id (`controller`) defaults to
+`https://issuer.example/issuers/<key-id>`; give several keys the same
+`--controller` to model one Issuer with several keys. The verification method
+id is `<controller>#<publicKeyMultibase>`.
+
+`issue` checks every base proof after signing unless `--no-verify` is passed,
+and prints the number of credentials per BBS header value, per message count L
+and per total statement count.
 
 ## Prover
 
 ```sh
-# Verify issued credentials against the Issuer's public key, as a Prover does on receipt.
-prover check --public-key out/issuer-0.pub.json --credentials out/credentials.jsonl
+# Check received credentials against the Issuer's public key.
+npm run prover -- check --public-key out/issuer-0.pub.json --credentials out/credentials.jsonl
 ```
 
-Runs the draft's `Verify` on every credential, lists each one that fails with
-its `prover_id`, and exits non-zero if any fail. This checks the Issuer's
-signature; it is not presentation verification (`ProofVerify`), which belongs
-to the Verifier.
+Recomputes each base proof's BBS header and messages from the credential, runs
+the draft's `Verify`, lists each failure with its `prover_id`, and exits
+non-zero if any fail. This is not presentation verification, which belongs to
+the Verifier.
 
 ## Issuer details
 
@@ -64,54 +69,74 @@ to the Verifier.
 Everything the Issuer decides lives in one TOML file, so each point in a sweep
 is one config. See `configs/examples/pid-age.toml`.
 
-- `header.template`: the BBS header, rendered per credential and encoded as
-  UTF-8. `{name}` takes the Prover's value for attribute `name`; the attribute
-  does not have to be signed. A template with no placeholders gives one header
-  value for the whole population.
-- `schema.fields`: attributes in message-index order, each optionally
-  `optional = true`.
-- `schema.absent_optional`: `omit` leaves out an absent optional attribute,
-  so the message count varies and later attributes change index; `pad` signs
-  `<name>=` in its slot, so every credential has the same message count and
-  layout.
+- `schema.fields`: attributes a credential may carry, each optionally
+  `optional = true`. Names must be terms of the PID context. The order does not
+  set message indexes; the canonical N-Quad order does.
+- `schema.absent_optional`: only `omit`. An absent optional attribute is left
+  out, so L is one smaller.
+- `proof.mandatory_pointers`: JSON Pointers to statements that are always
+  disclosed. Their N-Quads are hashed into the BBS header instead of being BBS
+  messages. A pointer into `credentialSubject` must name a required field.
+
+### Credentials
+
+Each population record becomes a VC Data Model 2.0 credential of type
+`PidCredential`, with the record's attributes in `credentialSubject`. The
+JSON-LD context (`packages/common/src/contexts.ts`) is ours: term names follow
+the EUDI PID Rulebook, which defines only mdoc and SD-JWT VC encodings, and
+`age_over_18` comes from the German PID's national extension. Contexts and key
+documents are served by an offline document loader; nothing is fetched.
 
 ### File formats
 
 Population (input), one JSON object per line. Values must be JSON scalars;
-`null` counts as absent. Attributes outside the schema and the header template
-are rejected.
+`null` counts as absent. Attributes outside the schema are rejected.
 
 ```json
 {"prover_id": "p0001", "attributes": {"birth_date": "1994-03-12", "issuing_country": "BR"}}
 ```
 
-Credentials (output), one JSON object per line. `prover_id` is the ground-truth
-label for the analysis and is never signed. `header` and `signature` are hex;
-`messages` are the signed octet strings, in index order.
+Credentials (output), one JSON object per line. `prover_id` is the
+ground-truth label for the analysis and is never signed.
 
 ```json
-{"prover_id": "p0001", "key_id": "issuer-0", "ciphersuite": "BLS12-381-SHA-256",
- "header": "7069642d6167652f76312f4252", "messages": ["birth_date=1994-03-12", "issuing_country=BR"],
- "signature": "b13a..."}
+{"prover_id": "p0001", "key_id": "issuer-0", "credential": {"@context": ["https://www.w3.org/ns/credentials/v2", "..."],
+ "type": ["VerifiableCredential", "PidCredential"], "issuer": "https://issuer.example/issuers/issuer-0",
+ "credentialSubject": {"birth_date": "1994-03-12", "issuing_country": "BR"},
+ "proof": {"type": "DataIntegrityProof", "cryptosuite": "bbs-2023", "proofValue": "u2V0C..."}}}
 ```
 
 ## Design notes
 
-- **BBS implementation.** ZKryptium, pinned to `=0.7.1`. That release cites
-  draft-irtf-cfrg-bbs-signatures-12; its code and test fixtures are identical
-  to 0.7.0, which cited draft-10. `crates/common/src/bbs.rs` has known-answer
-  tests against the draft's BLS12-381-SHA-256 key and signature fixtures.
-- **Signing input.** The Issuer signs an ordered message array with an
-  explicit header, as the core draft defines. The W3C `bbs-2023` cryptosuite is
-  not implemented; it would compute the header and messages from a JSON-LD
-  document and call the same `Sign`.
-- **Message encoding.** Each message is the UTF-8 string `<name>=<value>`, so a
-  disclosed message can be read without knowing the credential layout. A
-  padded slot (`<name>=`) cannot be told apart from a present attribute whose
-  value is the empty string.
-- **Determinism.** The draft's `Sign` is deterministic, so the same key, policy
-  and population always give the same credentials. Seeded keys are for
-  reproducible experiments only.
-- **Performance.** About 10 ms per credential single-threaded on a 2-core
-  machine, about 23 ms with verification. ZKryptium recomputes the generators
-  on every `Sign` call. Issuance is not parallelized yet.
+- **Libraries.** `@digitalbazaar/vc` 7.3.0, `data-integrity`,
+  `bbs-2023-cryptosuite` 2.0.1, `di-sd-primitives` 3.3.0 and `bbs-signatures`
+  3.1.0. The packages ship no types; `packages/common/types/digitalbazaar.d.ts`
+  declares what is used, and only `packages/common/src/bbs.ts` and
+  `bbs2023.ts` import them. `packages/common/test/bbs.test.ts` runs the draft's
+  BLS12-381-SHA-256 signature and proof fixtures against the core BBS calls.
+- **Base-proof check.** The cryptosuite verifies derived proofs only.
+  `inspectBaseProof` rebuilds the BBS header and messages the way its sign step
+  does (same `di-sd-primitives` calls and HMAC label shuffle), and the tests
+  cross-check it against the library's derive and verify.
+- **No `created`.** The library deletes `created` from base proofs, so the
+  timestamp channel (spec §6.2.4) cannot be exercised with it as-is.
+- **Not deterministic.** Each base proof gets a fresh random HMAC key, so
+  issuing the same population twice gives different credentials. Counts and
+  the header's dependence on content are stable; individual header values and
+  index sets are not.
+- **Performance.** On a 2-core VM, about 60 ms per credential without the
+  check and 140 ms with it; `prover check` about 85 ms per credential. Not
+  parallelized yet.
+
+### Binding channels
+
+- **Header.** `proofHash || mandatoryHash`. `proofHash` depends only on the
+  proof options. `mandatoryHash` hashes the mandatory N-Quads, which carry the
+  HMAC-shuffled blank node labels. The example credential has two blank nodes
+  (the credential and its subject), so credentials with identical mandatory
+  content get one of two header values at random, according to which node is
+  labelled `b0`. With the example policy that is up to two header values per
+  issuing country.
+- **Index sets.** The same shuffle changes the canonical order of the N-Quads,
+  so message indexes differ across credentials and stay fixed across one
+  credential's presentations (spec §6.2.2).

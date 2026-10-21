@@ -1,20 +1,16 @@
-# Example Issuer deployment policy for the age-verification domain.
+# Example Issuer deployment policy for the age-verification domain (bbs-2023).
 #
-# Illustrative only: the attribute names loosely follow EUDI PID naming, but
-# the thesis schema is not fixed here. Each point in a parameter sweep is one
-# file like this.
-
-[header]
-# Rendered per credential and signed as UTF-8. One header value per issuing
-# country; use a template with no {placeholders} for a single global value.
-template = "pid-age/v1/{issuing_country}"
+# Attribute names are terms of our PID context (packages/common/src/contexts.ts),
+# named after the EUDI PID Rulebook. Each point in a parameter sweep is one file
+# like this.
 
 [schema]
-# "omit": a Prover without an optional attribute gets a shorter message array.
-# "pad":  the slot is signed as "<name>=" so every credential has the same L.
+# "omit": a Prover without an optional attribute gets a credential without that
+# statement, so L is one smaller. "pad" has no bbs-2023 equivalent yet.
 absent_optional = "omit"
 
-# Message-index order.
+# Attributes a credential may carry. Under bbs-2023 this order does not set
+# message indexes; the canonical N-Quad order does.
 [[schema.fields]]
 name = "family_name"
 
@@ -40,3 +36,11 @@ optional = true
 
 [[schema.fields]]
 name = "issuing_country"
+
+[proof]
+# Statements always disclosed. Their N-Quads are hashed into the BBS header
+# (proofHash || mandatoryHash) rather than signed as BBS messages. Making
+# issuing_country mandatory gives one header value per issuing country, as the
+# old header template "pid-age/v1/{issuing_country}" did, but the header also
+# depends on the blank-node label shuffle (see README, "Binding channels").
+mandatory_pointers = ["/issuer", "/credentialSubject/issuing_country"]

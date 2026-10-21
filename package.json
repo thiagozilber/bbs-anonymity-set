@@ -1,0 +1,23 @@
+{
+  "name": "bbs-anonymity-set",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm test",
+    "issuer": "node packages/issuer/src/cli.ts",
+    "prover": "node packages/prover/src/cli.ts"
+  }
+}

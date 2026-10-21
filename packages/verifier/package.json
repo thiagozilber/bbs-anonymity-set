@@ -1,0 +1,9 @@
+{
+  "name": "@bbs-anonymity-set/verifier",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@bbs-anonymity-set/common": "*"
+  }
+}

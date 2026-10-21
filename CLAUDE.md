@@ -8,66 +8,89 @@ why things are the way they are.
 The measurement harness for Thiago's TCC (PUCRS). The thesis measures how far a
 compliant BBS credential deployment narrows a Prover population, using only
 what a Verifier computes while verifying a presentation: U (from proof size),
-the message count, the disclosed index set and the header. Identical
+the total statement count, the disclosed index set and the header. Identical
 observation tuples define equivalence classes; the results are class-size
 distributions and curves over population size N. The partition is exact, so
 there is no classifier. The ML branch and all network-layer (Layer 1) features
 are deferred to TCC II.
 
 Planned components: population generator (Python), Issuer, Prover, Verifier
-observer, analysis (Python). The Issuer is done; the Prover has only `check`
-(the draft's `Verify` on received credentials). Presentation generation is the
-next Prover step.
+observer, analysis (Python). The Issuer is done; the Prover has only `check`.
+Presentation generation (Prover `derive` under a disclosure policy) is next,
+then the Verifier observer.
 
 ## Decisions
 
-- **BBS library.** ZKryptium, pinned `=0.7.1`. All BBS calls go through
-  `crates/common/src/bbs.rs`; keep the known-answer tests against the draft
-  fixtures passing.
-- **Signing input.** The Issuer signs an ordered message array with an
-  explicit header, as the core draft defines (messages are UTF-8
-  `<name>=<value>`). The W3C `bbs-2023` cryptosuite may be added later as a
-  layer in front of the same `Sign`. It does not change the scheme. If it is
-  added:
-  - use `featureOption = "baseline"` only; the optional features switch to
-    the Blind BBS and per-Verifier-linkability drafts, which are different
-    schemes;
-  - the header becomes `proofHash || mandatoryHash`, so it carries exactly
-    what the proof options and mandatory statements carry and is not an
-    independent channel;
-  - only non-mandatory statements are BBS messages, so L counts those, and
-    the total statement count is mandatory count plus L.
+- **Stack.** TypeScript on Digital Bazaar's `bbs-2023` implementation, which
+  passes the W3C vc-di-bbs test suite. Implementing `bbs-2023` ourselves
+  (JSON-LD, RDFC-1.0, selective-disclosure primitives, CBOR proof encoding)
+  is not the thesis contribution. The earlier Rust harness on ZKryptium is in
+  git history; there is no Rust cross-check.
+- **One place for the libraries.** Digital Bazaar's packages are untyped. Only
+  `packages/common/src/bbs.ts` (core BBS) and `bbs2023.ts` (cryptosuite, VC,
+  Data Integrity, di-sd-primitives) import them, declared in
+  `packages/common/types/digitalbazaar.d.ts`. Keep the draft fixture tests in
+  `packages/common/test/bbs.test.ts` passing.
+- **Base-proof check is ours.** The cryptosuite has no Holder-side check of a
+  base proof. `inspectBaseProof` repeats the cryptosuite's sign-side steps
+  with the HMAC key from the proof; the tests check it against the library's
+  derive and verify. If the library is upgraded, re-read its `sign.js` and
+  `sdFunctions.js` and compare.
+- **Baseline only.** `featureOption = "baseline"`; the optional features use
+  the Blind BBS and per-Verifier-linkability drafts, which are different
+  schemes.
+- **Header.** `proofHash || mandatoryHash`. It is not an independent channel,
+  but it is also not a function of the mandatory content alone: the mandatory
+  N-Quads carry the HMAC-shuffled blank node labels, so identical content
+  splits into up to (number of blank nodes)! header values. L counts only
+  non-mandatory statements; total statement count = mandatory count + L.
+- **Vocabulary.** Our own JSON-LD context with term names from the EUDI PID
+  Rulebook (`age_over_18` from the German extension, since EU-level PID
+  versions dropped age attributes). The PID Rulebook has no JSON-LD encoding.
 - **No OpenID4VP or OpenID4VCI.** The tuple is measured at the credential
-  boundary (the inputs to `ProofVerify`). The Verifier observer takes
-  presentation objects, not network connections, so a transport can be added
-  for TCC II without changing it. The disclosure policy is defined by us in
-  config, modeled on DCQL (including `claim_sets`).
-- **Issuer.** Batch CLI, not a service. All Issuer-side deployment policy
-  (header template, schema order, omit or pad for absent optional attributes)
-  lives in one TOML file per sweep point.
+  boundary. The Verifier observer takes presentation objects, not network
+  connections, so a transport can be added for TCC II without changing it.
+  The disclosure policy is defined by us in config, modeled on DCQL
+  (including `claim_sets`).
+- **Issuer.** Batch CLI, not a service. All Issuer-side policy lives in one
+  TOML file per sweep point.
 - **Ground truth.** `prover_id` travels with every record for the analysis and
   is never signed.
 
 ## Open items
 
-- **Draft version.** The thesis text cites draft-10. Draft-12 (28 Sept 2026)
-  is the latest; ZKryptium 0.7.1 cites it, with code and fixtures identical to
-  0.7.0 (draft-10). Compare draft-12 against draft-10 for the §5.1 header
+- **`pad`.** `absent_optional = "pad"` has no `bbs-2023` equivalent and is
+  rejected by the config loader. Placeholder values are one option.
+- **Proof options as a channel.** The library deletes `created` from base
+  proofs, so spec §6.2.4 cannot be exercised as-is. Other proof options and
+  the number of Issuer keys (§6.2.1, via `keygen --controller`) are not in the
+  config yet.
+- **Reproducibility.** The HMAC key is random per credential and the library
+  gives no way to supply it, so runs are not reproducible credential by
+  credential. Supplying it would mean our own sign cryptosuite object built on
+  the same primitives.
+- **Core BBS baseline.** Whether to also run core BBS next to `bbs-2023`, to
+  isolate what the binding adds. Only if it comes almost free.
+- **Large N.** About 60 ms per credential without the check. Options: worker
+  threads, or run the `bbs-2023` transformation without `Sign`/`ProofGen` for
+  large N and confirm the tuples with full runs on smaller N (a method choice
+  to state in the thesis).
+- **Draft version.** The thesis cites draft-10; draft-12 (28 Sept 2026) is the
+  latest. `bbs-signatures` comments cite draft-06 but its outputs match the
+  current fixtures. Compare draft-12 against draft-10 for the §5.1 header
   guidance and the proof-size formula before changing the citation.
-- **Issuance speed.** About 10 ms per credential single-threaded on a 2-core
-  machine, about 23 ms with verification. ZKryptium recomputes the generators
-  on every `Sign`, and its internal signing function is private. Parallelize
-  across records if the N sweep needs it.
 
 ## Conventions
 
-- `cargo fmt`, `cargo clippy --all-targets` with no warnings, and `cargo test`
-  before every commit.
+- `npm run check` (typecheck and tests) before every commit.
+- Node runs the TypeScript directly, so code must be erasable syntax only (no
+  enums, namespaces or parameter properties); `erasableSyntaxOnly` enforces it.
+  Relative imports use `.ts` extensions.
 - Anything that crosses a process boundary (keys, population, credentials) is
-  a type in `crates/common` and is written as JSON or JSON Lines.
-- Files holding secret key material are written with `write_json_private`
-  (mode 0600), never `write_json`.
+  a type in `packages/common/src/types.ts` and is written as JSON or JSON
+  Lines.
+- Files holding secret key material are written with `writeJsonPrivate`
+  (mode 0600), never `writeJson`.
 - Commits carry no Claude co-author or session trailers.
-- New crates go under `crates/`; the workspace picks them up automatically.
 - Thiago writes the thesis prose himself. Code comments and docs here should
   state things plainly.

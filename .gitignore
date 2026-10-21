@@ -1,4 +1,4 @@
-/target
+node_modules/
 # Generated keys, credentials and run outputs. Keys contain secret material.
 /out
 *.key.json

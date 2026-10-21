@@ -1,0 +1,12 @@
+{
+  "name": "@bbs-anonymity-set/prover",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@bbs-anonymity-set/common": "*"
+  },
+  "bin": {
+    "prover": "./src/cli.ts"
+  }
+}

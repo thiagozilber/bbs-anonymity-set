@@ -1,0 +1,13 @@
+{
+  "name": "@bbs-anonymity-set/issuer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "smol-toml": "^1.9.1",
+    "@bbs-anonymity-set/common": "*"
+  },
+  "bin": {
+    "issuer": "./src/cli.ts"
+  }
+}
