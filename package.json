@@ -18,6 +18,7 @@
     "test": "vitest run",
     "check": "npm run typecheck && npm test",
     "issuer": "node packages/issuer/src/cli.ts",
-    "prover": "node packages/prover/src/cli.ts"
+    "prover": "node packages/prover/src/cli.ts",
+    "verifier": "node packages/verifier/src/cli.ts"
   }
 }

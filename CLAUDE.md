@@ -15,8 +15,9 @@ there is no classifier. The ML branch and all network-layer (Layer 1) features
 are deferred to TCC II.
 
 Planned components: population generator (Python), Issuer, Prover, Verifier
-observer, analysis (Python). The Issuer and Prover (`check`, `present`) are
-done. The Verifier observer is next.
+observer, analysis (Python). The Issuer, Prover (`check`, `present`) and
+Verifier observer are done. The population generator and analysis (Python,
+under `analysis/`) are next.
 
 ## Decisions
 
@@ -60,8 +61,22 @@ done. The Verifier observer is next.
   `empty`, `random` (Prover-chosen), `nonce` (Verifier-chosen, recorded as
   `verifier_nonce`), `fixed` (reuse). Presentations per credential are
   configurable, default 1.
+- **Non-answers.** A Prover that cannot answer writes one non-answer record
+  per request; the observer passes them through. Whether "no presentation" is
+  its own class in the partition is decided in the analysis.
+- **Verifier observer.** Records every channel raw (counts, both index sets,
+  header, label map, relabelled revealed N-Quads, presentation header,
+  disclosed values, issuer and key). It does not choose the tuple; the
+  analysis does, so changing the tuple needs no rerun. Presentations that fail
+  verification are left out and make the run exit non-zero, since in the
+  harness they mean a bug.
+- **Collusion.** One observer run per Verifier, stamped with `--verifier-id`.
+  RP+RP'-U is modelled by joining observation files in the analysis, so the
+  observer stays a single honest Verifier and the join method can vary
+  without reruns.
 - **Ground truth.** `prover_id` travels with every record for the analysis and
-  is never signed.
+  is never signed. In observation records it lives under `truth`, apart from
+  `observation`.
 
 ## Open items
 

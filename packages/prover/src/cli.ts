@@ -9,13 +9,14 @@ import {
   readJson,
   readJsonl,
   writeJsonl,
+  type AnsweredPresentation,
   type CredentialRecord,
   type PresentationRecord,
   type PublicKeyFile
 } from '@bbs-anonymity-set/common';
 import {checkCredential} from './check.ts';
 import {loadPolicy} from './policy.ts';
-import {present, summarize} from './present.ts';
+import {nonAnswers, present, summarize} from './present.ts';
 
 const USAGE = `usage:
   prover check --public-key <id.pub.json> --credentials <jsonl>
@@ -23,7 +24,8 @@ const USAGE = `usage:
       public key. Exits non-zero if any credential fails.
   prover present --policy <toml> --public-key <id.pub.json> --credentials <jsonl> --out <jsonl> [--no-verify]
       Answers the policy's query from each credential with bbs-2023
-      disclosure proofs. Provers that cannot answer are listed, not errors.`;
+      disclosure proofs. Provers that cannot answer get non-answer records
+      and are listed; that is not an error.`;
 
 async function check(argv: string[]): Promise<void> {
   const {values} = parseArgs({
@@ -71,6 +73,7 @@ async function presentAll(argv: string[]): Promise<void> {
   const loader = await documentLoaderFor([key]);
 
   const records: PresentationRecord[] = [];
+  const answered: AnsweredPresentation[] = [];
   const unanswered: Array<{prover_id: string; reason: string}> = [];
   for (const credential of credentials) {
     if (credential.key_id !== key.key_id) {
@@ -79,17 +82,19 @@ async function presentAll(argv: string[]): Promise<void> {
     const outcome = await present(credential, policy, loader, verify);
     if (outcome.ok) {
       records.push(...outcome.records);
+      answered.push(...outcome.records);
     } else {
+      records.push(...nonAnswers(credential, policy, outcome.reason));
       unanswered.push({prover_id: credential.prover_id, reason: outcome.reason});
     }
   }
   mkdirSync(dirname(out), {recursive: true});
   writeJsonl(out, records);
 
-  const s = summarize(credentials.length, records, unanswered);
+  const s = summarize(credentials.length, answered, unanswered);
   console.error(
-    `wrote ${s.presentations} presentations from ${s.credentials - s.unanswered.length} of ` +
-      `${s.credentials} credentials to ${out}${verify ? ' (all verified)' : ''}`
+    `wrote ${s.presentations} presentations from ${s.credentials - s.unanswered.length} of ${s.credentials} ` +
+      `credentials${verify ? ' (all verified)' : ''} and ${records.length - s.presentations} non-answers to ${out}`
   );
   if (s.unanswered.length > 0) {
     console.error(`  no presentation (${s.unanswered.length}):`);

@@ -9,8 +9,9 @@ import {
   toHex,
   verifyDerivedCredential,
   type CredentialRecord,
+  type AnsweredPresentation,
   type DocumentLoader,
-  type PresentationRecord,
+  type NonAnswer,
   type SignedCredential
 } from '@bbs-anonymity-set/common';
 import type {ClaimQuery, DisclosurePolicy} from './policy.ts';
@@ -95,7 +96,7 @@ export function jsonPointer(path: Array<string | number>): string {
 }
 
 export type PresentOutcome =
-  | {ok: true; records: PresentationRecord[]}
+  | {ok: true; records: AnsweredPresentation[]}
   | {ok: false; reason: string};
 
 /**
@@ -113,7 +114,7 @@ export async function present(
   if (!selection.ok) {
     return selection;
   }
-  const records: PresentationRecord[] = [];
+  const records: AnsweredPresentation[] = [];
   for (let i = 0; i < policy.presentation.count; i++) {
     const presentationHeader = presentationHeaderFor(policy);
     const derived = await deriveCredential({
@@ -150,6 +151,21 @@ export async function present(
   return {ok: true, records};
 }
 
+/**
+ * The records for a credential that cannot answer the query: one per request,
+ * so non-answers are counted the same way as presentations.
+ */
+export function nonAnswers(record: CredentialRecord, policy: DisclosurePolicy, reason: string): NonAnswer[] {
+  return Array.from({length: policy.presentation.count}, (_, i) => ({
+    prover_id: record.prover_id,
+    key_id: record.key_id,
+    presentation_index: i,
+    claim_set: null,
+    presentation: null,
+    reason
+  }));
+}
+
 function presentationHeaderFor(policy: DisclosurePolicy): Uint8Array {
   const header = policy.presentation.header;
   switch (header.mode) {
@@ -179,7 +195,7 @@ export interface PresentationSummary {
 
 export function summarize(
   credentials: number,
-  records: PresentationRecord[],
+  records: AnsweredPresentation[],
   unanswered: Array<{prover_id: string; reason: string}>
 ): PresentationSummary {
   const s: PresentationSummary = {

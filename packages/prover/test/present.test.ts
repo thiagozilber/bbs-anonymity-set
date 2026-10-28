@@ -230,8 +230,18 @@ describe('prover present CLI', () => {
       expect(result.stderr).toContain(`${id}: no claim set can be satisfied`);
     }
     const records = readJsonl<PresentationRecord>(out);
-    expect(records.map(r => r.prover_id)).toEqual(['p0001', 'p0004', 'p0005']);
-    expect(records.every(r => r.claim_set === 0 && r.verifier_nonce?.length === 64)).toBe(true);
+    expect(records.map(r => [r.prover_id, r.presentation === null])).toEqual([
+      ['p0001', false], ['p0002', true], ['p0003', true], ['p0004', false], ['p0005', false], ['p0006', true]
+    ]);
+    for (const r of records) {
+      if (r.presentation === null) {
+        expect(r).toMatchObject({claim_set: null, presentation_index: 0, reason: 'no claim set can be satisfied'});
+        expect(r).not.toHaveProperty('verifier_nonce');
+      } else {
+        expect(r.claim_set).toBe(0);
+        expect(r.verifier_nonce).toHaveLength(64);
+      }
+    }
   });
 
   it('rejects credentials under another key', async () => {

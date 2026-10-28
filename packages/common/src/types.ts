@@ -70,19 +70,94 @@ export interface CredentialRecord {
 }
 
 /**
- * One presentation, as written by `prover present`. The Verifier observer
- * reads only `presentation` and `verifier_nonce`, which a real Verifier has;
- * the other fields are ground truth for the analysis.
+ * One line of `prover present` output: a presentation, or a request the
+ * Prover could not answer. The Verifier observer reads only `presentation`
+ * and `verifier_nonce`, which a real Verifier has; the other fields are
+ * ground truth for the analysis.
  */
-export interface PresentationRecord {
+export type PresentationRecord = AnsweredPresentation | NonAnswer;
+
+interface PresentationRecordBase {
   prover_id: string;
   key_id: string;
-  /** 0-based index among the presentations made from this credential. */
+  /** 0-based index among the requests made to this credential. */
   presentation_index: number;
+}
+
+export interface AnsweredPresentation extends PresentationRecordBase {
   /** Index of the presented option in the policy's claim_sets; null without claim_sets. */
   claim_set: number | null;
   /** Hex. Only with presentation header mode "nonce": the Verifier's nonce. */
   verifier_nonce?: string;
   /** The derived credential with its bbs-2023 disclosure proof. */
   presentation: SignedCredential;
+}
+
+export interface NonAnswer extends PresentationRecordBase {
+  claim_set: null;
+  /** The Verifier receives nothing. */
+  presentation: null;
+  /** Ground truth: why the Prover could not answer. */
+  reason: string;
+}
+
+/** Disclosed values, as the Verifier reads them from the revealed credential. */
+export type DisclosedValues = Record<string, Scalar>;
+
+/**
+ * What one Verifier records for one request, as written by `verifier observe`.
+ * `observation` holds only what the Verifier computes; `truth` is carried
+ * through for the analysis and must not be used to form tuples.
+ */
+export interface ObservationRecord {
+  verifier_id: string;
+  /** False when the Prover made no presentation. */
+  answered: boolean;
+  observation: Observation | null;
+  truth: {
+    prover_id: string;
+    key_id: string;
+    presentation_index: number;
+    claim_set: number | null;
+    /** Only for non-answers. */
+    reason?: string;
+  };
+}
+
+/** Every channel a Verifier sees in a verified bbs-2023 presentation. */
+export interface Observation {
+  /** Undisclosed BBS messages, from the proof length (272 + 32U octets). */
+  u: number;
+  /** BBS messages L = U + R. */
+  l: number;
+  /** Disclosed BBS messages R. */
+  disclosed_count: number;
+  mandatory_count: number;
+  /** mandatory_count + L. */
+  total_statements: number;
+  /** BBS indexes of the disclosed messages. */
+  selective_indexes: number[];
+  /** Positions of the mandatory statements among the revealed ones. */
+  mandatory_indexes: number[];
+  /** Hex BBS header, proofHash || mandatoryHash. */
+  header: string;
+  /**
+   * Compressed label map as [canonical, shuffled] pairs, sorted by canonical.
+   * The canonical side depends on what was revealed, so the map is fixed for
+   * one credential and one request, not across requests.
+   */
+  label_map: Array<[number, number]>;
+  /**
+   * The revealed N-Quads with the HMAC-shuffled blank node labels, as used to
+   * verify. A blank node has the same label in every presentation of a
+   * credential, whatever the request.
+   */
+  revealed_nquads: string[];
+  /** Hex presentation header. */
+  presentation_header: string;
+  proof_length: number;
+  issuer: string;
+  verification_method: string;
+  /** credentialSubject of the revealed credential. */
+  disclosed: DisclosedValues;
 }

@@ -13,7 +13,7 @@ through Digital Bazaar's implementation.
 | `packages/common` | Types shared by all roles (key files, population and credential records), the JSON-LD context and offline document loader, and the typed wrappers over Digital Bazaar's libraries | done |
 | `packages/issuer` | Issuer CLI: key generation and issuance | done |
 | `packages/prover` | Prover CLI: base-proof check and presentation generation under a disclosure policy | done |
-| `packages/verifier` | Presentation verification and observation-tuple logging | not started |
+| `packages/verifier` | Verifier observer CLI: verifies presentations and records every channel a Verifier sees | done |
 | `analysis/` | Python: population generator, partition analysis | not started |
 | `configs/examples/` | Example deployment policies | |
 | `data/examples/` | Example population | |
@@ -71,8 +71,9 @@ npm run prover -- present --policy configs/examples/age-check.toml --public-key 
 Derives `bbs-2023` disclosure proofs under the disclosure policy, checks each
 with the library's verifier unless `--no-verify` is passed, and prints the
 number of presentations per claim set, per U and per disclosed message count.
-Provers that cannot answer the query are listed with the reason and make no
-presentation; that is an outcome, not an error.
+A Prover that cannot answer the query gets one non-answer record per request
+(`presentation: null`, with the reason as ground truth) and is listed; that is
+an outcome, not an error.
 
 ### Disclosure policy (`--policy`)
 
@@ -101,13 +102,55 @@ sweep point. See `configs/examples/age-check.toml`.
 
 One JSON object per line. The Verifier observer reads only `presentation`
 and `verifier_nonce`, which a real Verifier has; `prover_id`,
-`presentation_index` and `claim_set` are ground truth for the analysis.
+`presentation_index`, `claim_set` and `reason` are ground truth for the
+analysis.
 
 ```json
 {"prover_id": "p0001", "key_id": "issuer-0", "presentation_index": 0, "claim_set": 0,
  "verifier_nonce": "7b67...", "presentation": {"credentialSubject": {"issuing_country": "BR", "age_over_18": true,
  "resident_country": "BR"}, "proof": {"cryptosuite": "bbs-2023", "proofValue": "u2V0D..."}, "...": "..."}}
+{"prover_id": "p0002", "key_id": "issuer-0", "presentation_index": 0, "claim_set": null,
+ "presentation": null, "reason": "no claim set can be satisfied"}
 ```
+
+## Verifier observer
+
+```sh
+# One run per Verifier. Repeat --public-key for each trusted Issuer key.
+npm run verifier -- observe --public-key out/issuer-0.pub.json --presentations out/presentations.jsonl \
+                            --out out/observations-rp1.jsonl --verifier-id rp1
+```
+
+Verifies each presentation with the library (against `verifier_nonce` when
+there is one), then records every channel a Verifier sees. It does not decide
+which channels form the observation tuple; the analysis does. Non-answers are
+passed through with no observation. Presentations that fail verification are
+listed by `prover_id#presentation_index`, left out of the output, and make the
+exit status non-zero.
+
+Colluding Verifiers (RP+RP'-U) are modelled by running `prover present` once
+per Verifier's policy, observing each output with its own `--verifier-id`, and
+joining the observation files in the analysis.
+
+### Observations (output)
+
+One JSON object per line. `observation` holds only what the Verifier
+computes; `truth` is carried through for scoring and must not be used to form
+tuples.
+
+```json
+{"verifier_id": "rp1", "answered": true,
+ "observation": {"u": 5, "l": 7, "disclosed_count": 2, "mandatory_count": 5, "total_statements": 12,
+   "selective_indexes": [0, 6], "mandatory_indexes": [1, 3, 4, 5, 6], "header": "b973...",
+   "label_map": [[0, 1], [1, 0]], "revealed_nquads": ["_:b1 <...#credentialSubject> _:b0 .\n", "..."],
+   "presentation_header": "2a42...", "proof_length": 432,
+   "issuer": "https://issuer.example/issuers/issuer-0", "verification_method": "https://...#zUC7...",
+   "disclosed": {"issuing_country": "BR", "age_over_18": true, "resident_country": "BR"}},
+ "truth": {"prover_id": "p0001", "key_id": "issuer-0", "presentation_index": 0, "claim_set": 0}}
+```
+
+Non-answers have `"answered": false`, `"observation": null`, and the Prover's
+reason in `truth.reason`.
 
 ## Issuer details
 
@@ -187,5 +230,9 @@ ground-truth label for the analysis and is never signed.
   issuing country.
 - **Index sets.** The same shuffle changes the canonical order of the N-Quads,
   so message indexes differ across credentials and stay fixed across one
-  credential's presentations (spec §6.2.2). The derived proof's label map is
-  also the same in every presentation of a credential.
+  credential's presentations (spec §6.2.2).
+- **Label map.** The derived proof's label map maps canonical labels of the
+  revealed document to the shuffled labels. Its canonical side depends on what
+  was revealed, so it is fixed per credential and request, not across
+  requests. The shuffled label of each node (visible in `revealed_nquads`) is
+  fixed per credential across all requests.

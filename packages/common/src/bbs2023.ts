@@ -18,8 +18,10 @@ import {
   canonicalizeAndGroup,
   createHmac,
   createHmacIdLabelMapFunction,
+  createLabelMapFunction,
   hashCanonizedProof,
   hashMandatory,
+  labelReplacementCanonicalizeJsonLd,
   stringToUtf8Bytes,
   type Hmac,
   type LabelMapFactory
@@ -389,6 +391,90 @@ export function parseDerivedProofValue(proofValue: string): DerivedProofValue {
     selectiveIndexes: checkIndexes(selectiveIndexes, 'selectiveIndexes'),
     presentationHeader,
     undisclosedCount: u
+  };
+}
+
+/** What a Verifier computes from a derived proof, before running ProofVerify. */
+export interface DerivedProofInspection {
+  proofValue: DerivedProofValue;
+  /** `proofHash || mandatoryHash`, recomputed from the revealed document. */
+  header: Uint8Array;
+  /**
+   * The revealed N-Quads with the HMAC-shuffled blank node labels, in
+   * canonical order. Unlike the label map, these labels do not depend on
+   * what was disclosed: a node has the same label in every presentation.
+   */
+  nquads: string[];
+  /** Revealed N-Quads: the mandatory ones plus the disclosed BBS messages. */
+  revealedStatements: number;
+  /** Mandatory N-Quads (all of them are revealed). */
+  mandatoryCount: number;
+  /** Disclosed BBS messages R. */
+  disclosedCount: number;
+  /** BBS messages L = U + R, the credential's non-mandatory statements. */
+  messageCount: number;
+  /** All statements of the original credential: mandatoryCount + L. */
+  totalStatements: number;
+}
+
+/**
+ * Recomputes the inputs to ProofVerify the way the cryptosuite's verify step
+ * does: proofHash from the proof options, the revealed document canonicalized
+ * with the proof's label map, its N-Quads split by `mandatoryIndexes`, and
+ * mandatoryHash over the mandatory ones. Does not verify the proof;
+ * `verifyDerivedCredential` does.
+ */
+export async function inspectDerivedProof(
+  credential: SignedCredential,
+  documentLoader: DocumentLoader
+): Promise<DerivedProofInspection> {
+  const {proof, ...document} = credential;
+  if (proof?.type !== 'DataIntegrityProof' || proof.cryptosuite !== CRYPTOSUITE) {
+    throw new Error(`proof is not a ${CRYPTOSUITE} DataIntegrityProof`);
+  }
+  const proofValue = parseDerivedProofValue(proof.proofValue);
+  const {proofValue: _value, ...proofOptions} = proof;
+  const options = {documentLoader};
+
+  const proofHash = await hashCanonizedProof({
+    document,
+    proof: {...proofOptions, '@context': document['@context']},
+    options
+  });
+
+  const labelMap = new Map(
+    [...proofValue.compressedLabelMap].map(([k, v]) => [`c14n${k}`, `b${v}`])
+  );
+  const nquads = await labelReplacementCanonicalizeJsonLd({
+    document,
+    labelMapFactoryFunction: createLabelMapFunction({labelMap}),
+    options
+  });
+  const mandatory = nquads.filter((_, i) => proofValue.mandatoryIndexes.includes(i));
+  if (mandatory.length !== proofValue.mandatoryIndexes.length) {
+    throw new Error('mandatoryIndexes point past the revealed statements');
+  }
+  const disclosedCount = nquads.length - mandatory.length;
+  if (disclosedCount !== proofValue.selectiveIndexes.length) {
+    throw new Error(
+      `${disclosedCount} disclosed statements but ${proofValue.selectiveIndexes.length} selectiveIndexes`
+    );
+  }
+  const {mandatoryHash} = await hashMandatory({mandatory});
+  const header = new Uint8Array(proofHash.length + mandatoryHash.length);
+  header.set(proofHash, 0);
+  header.set(mandatoryHash, proofHash.length);
+
+  const messageCount = proofValue.undisclosedCount + disclosedCount;
+  return {
+    proofValue,
+    header,
+    nquads,
+    revealedStatements: nquads.length,
+    mandatoryCount: mandatory.length,
+    disclosedCount,
+    messageCount,
+    totalStatements: mandatory.length + messageCount
   };
 }
 

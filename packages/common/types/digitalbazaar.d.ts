@@ -131,6 +131,12 @@ declare module '@digitalbazaar/di-sd-primitives' {
   }
   export function createHmac(args: {key: Uint8Array | null}): Promise<Hmac>;
   export function createHmacIdLabelMapFunction(args: {hmac: Hmac}): LabelMapFactory;
+  export function createLabelMapFunction(args: {labelMap: Map<string, string>}): LabelMapFactory;
+  export function labelReplacementCanonicalizeJsonLd(args: {
+    document: object;
+    labelMapFactoryFunction: LabelMapFactory;
+    options: {documentLoader: DocumentLoader};
+  }): Promise<string[]>;
   export function canonicalizeAndGroup(args: {
     document: object;
     labelMapFactoryFunction: LabelMapFactory;
