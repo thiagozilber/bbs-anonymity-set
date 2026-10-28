@@ -14,9 +14,10 @@ through Digital Bazaar's implementation.
 | `packages/issuer` | Issuer CLI: key generation and issuance | done |
 | `packages/prover` | Prover CLI: base-proof check and presentation generation under a disclosure policy | done |
 | `packages/verifier` | Verifier observer CLI: verifies presentations and records every channel a Verifier sees | done |
-| `analysis/` | Python: population generator (done), partition analysis (not started) | generator only |
+| `analysis/` | Python: population generator and single-Verifier partition analysis | done (collusion join to follow) |
 | `configs/examples/` | Example Issuer and disclosure policies | |
 | `configs/populations/` | Population generator configs | |
+| `configs/analysis/` | Partition analysis configs | |
 | `data/examples/` | Example population | |
 
 ## Build and test
@@ -59,6 +60,41 @@ The config (`configs/populations/eu-default.toml`) sets:
 - `names`: family and given names per issuing country, drawn uniformly.
 
 The default numbers are plausible but **not sourced**; the config says so.
+
+## Partition analysis
+
+```sh
+npm run partition -- --observations out/observations-rp1.jsonl --config configs/analysis/default.toml \
+                     --out-dir out/analysis-rp1 [--per-prover]
+```
+
+For one Verifier's observations (RP-U), groups records with identical tuples
+into classes. A record's anonymity set is the number of distinct Provers in
+its class. Only `observation` fields form tuples; `truth.prover_id` is used to
+count Provers, never to group.
+
+- **Tuples.** Named field lists in the config (`configs/analysis/default.toml`
+  has `core`, `core_values` and `full`), all reported side by side. Fields are
+  those of `observation`.
+- **Non-answers.** Every tuple is computed twice: `class` (all non-answers
+  form one extra class) and `excluded` (only answering Provers are
+  partitioned).
+- **Curves over N.** Each point uses the first N Provers of the observation
+  file. This is valid because populations are prefix-consistent and nothing in
+  the harness depends on population size, so one run at the largest N gives
+  the whole curve. The config's `n` lists the points; the full file is always
+  the last one. A Prover's anonymity set never shrinks as N grows.
+
+Outputs in `--out-dir`:
+
+- `summary.csv`: per tuple, non-answer mode and N: Provers, records, classes,
+  the fraction of records with anonymity set 1, min/median/mean/max anonymity
+  set, the mean of log2(anonymity set) (expected entropy in bits), and that
+  mean divided by log2(Provers) (the degree of anonymity, 0 to 1);
+- `class_sizes.csv`: the number of classes of each size;
+- `per_prover.csv` (with `--per-prover`): each Prover's anonymity set at each
+  N;
+- `meta.json`: input paths and SHA-256 hashes, the Verifier id, the tuples.
 
 ## Issuer
 

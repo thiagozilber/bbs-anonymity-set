@@ -15,9 +15,9 @@ there is no classifier. The ML branch and all network-layer (Layer 1) features
 are deferred to TCC II.
 
 Planned components: population generator (Python), Issuer, Prover, Verifier
-observer, analysis (Python). The population generator, Issuer, Prover
-(`check`, `present`) and Verifier observer are done. The partition analysis
-(Python, under `analysis/`) is next.
+observer, analysis (Python). All are done for a single Verifier (RP-U). Next:
+joining two Verifiers' observations for RP+RP'-U, and a full-run check of the
+prefix method.
 
 ## Decisions
 
@@ -59,6 +59,13 @@ observer, analysis (Python). The population generator, Issuer, Prover
   residence attributes are nested (city only with country). Populations are
   prefix-consistent: record i is seeded by (seed, i), so curves over N differ
   only by the added Provers.
+- **Partition analysis.** Tuples are named field lists in a TOML config, all
+  reported side by side. Non-answers are reported both as one extra class and
+  excluded. A record's anonymity set is the number of distinct Provers in its
+  class. Curves over N use prefixes of one run (the first N Provers), not one
+  run per N: per-credential independence makes a prefix equivalent to a run of
+  size N. That stops holding if a policy ever depends on N; use full runs for
+  such sweeps. A full run at one N, to check the equivalence, is still to do.
 - **Issuer.** Batch CLI, not a service. All Issuer-side policy lives in one
   TOML file per sweep point.
 - **Prover presentations.** Disclosure policy is one TOML file per sweep

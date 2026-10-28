@@ -21,6 +21,7 @@
     "prover": "node packages/prover/src/cli.ts",
     "verifier": "node packages/verifier/src/cli.ts",
     "test:py": "uv run --project analysis pytest analysis",
-    "popgen": "uv run --project analysis popgen"
+    "popgen": "uv run --project analysis popgen",
+    "partition": "uv run --project analysis partition"
   }
 }
