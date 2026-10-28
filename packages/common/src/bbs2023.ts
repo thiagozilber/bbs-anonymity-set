@@ -133,12 +133,11 @@ export interface BaseProofValue {
 }
 
 export function parseBaseProofValue(proofValue: string): BaseProofValue {
-  const payload = decodeProofValue(proofValue, BASE_PREFIX, 'base');
-  const decoded: unknown = cborg.decode(payload, {useMaps: true});
-  if (!Array.isArray(decoded) || decoded.length !== 5) {
-    throw new Error('base proof value is not a 5-element CBOR array');
-  }
-  const [bbsSignature, bbsHeader, publicKey, hmacKey, mandatoryPointers] = decoded as unknown[];
+  const [bbsSignature, bbsHeader, publicKey, hmacKey, mandatoryPointers] = decodeProofValue(
+    proofValue,
+    BASE_PREFIX,
+    'base'
+  );
   for (const [name, v] of [
     ['bbsSignature', bbsSignature],
     ['bbsHeader', bbsHeader],
@@ -335,25 +334,101 @@ export async function verifyDerivedCredential(
 
 export interface DerivedProofValue {
   bbsProof: Uint8Array;
+  /** Canonical blank node number (c14n<k>) to HMAC-shuffled label number (b<v>). */
   compressedLabelMap: Map<number, number>;
+  /** Positions of the mandatory N-Quads among the revealed N-Quads, ascending. */
   mandatoryIndexes: number[];
+  /** BBS indexes of the disclosed non-mandatory messages, ascending. */
   selectiveIndexes: number[];
   presentationHeader: Uint8Array;
+  /** Undisclosed message count U, from the length of `bbsProof`. */
+  undisclosedCount: number;
 }
 
-/** The fields a Verifier reads from a derived proof value. */
+/**
+ * Parses and validates a derived proof value. The Verifier observer reads the
+ * observation tuple from it, so anything malformed is an error here rather
+ * than a wrong tuple later.
+ *
+ * Checks the library makes (`_validateDerivedProofParams` in the
+ * cryptosuite's `proofValue.js`): byte strings for `bbsProof` and
+ * `presentationHeader`, a map for the label map, integer arrays for the
+ * indexes. Checks added here:
+ * - `bbsProof` is 272 + 32U octets, as the draft's octets_to_proof requires;
+ * - label map keys and values are non-negative integers, and no two keys map
+ *   to the same label;
+ * - both index arrays are non-negative and strictly ascending. The draft
+ *   requires ascending disclosed indexes; the cryptosuite produces both
+ *   arrays in ascending order.
+ */
 export function parseDerivedProofValue(proofValue: string): DerivedProofValue {
-  const payload = decodeProofValue(proofValue, DERIVED_PREFIX, 'derived');
-  const decoded: unknown = cborg.decode(payload, {useMaps: true});
-  if (!Array.isArray(decoded) || decoded.length !== 5) {
-    throw new Error('derived proof value is not a 5-element CBOR array');
-  }
   const [bbsProof, compressedLabelMap, mandatoryIndexes, selectiveIndexes, presentationHeader] =
-    decoded as [Uint8Array, Map<number, number>, number[], number[], Uint8Array];
-  return {bbsProof, compressedLabelMap, mandatoryIndexes, selectiveIndexes, presentationHeader};
+    decodeProofValue(proofValue, DERIVED_PREFIX, 'derived');
+
+  if (!(bbsProof instanceof Uint8Array)) {
+    throw new Error('derived proof value: bbsProof is not a byte string');
+  }
+  let u: number;
+  try {
+    u = bbs.undisclosedCount(bbsProof);
+  } catch (e) {
+    throw new Error(`derived proof value: ${(e as Error).message}`);
+  }
+  if (!(presentationHeader instanceof Uint8Array)) {
+    throw new Error('derived proof value: presentationHeader is not a byte string');
+  }
+  return {
+    bbsProof,
+    compressedLabelMap: checkLabelMap(compressedLabelMap),
+    mandatoryIndexes: checkIndexes(mandatoryIndexes, 'mandatoryIndexes'),
+    selectiveIndexes: checkIndexes(selectiveIndexes, 'selectiveIndexes'),
+    presentationHeader,
+    undisclosedCount: u
+  };
 }
 
-function decodeProofValue(proofValue: string, prefix: Uint8Array, kind: string): Uint8Array {
+function isIndex(v: unknown): v is number {
+  return typeof v === 'number' && Number.isSafeInteger(v) && v >= 0;
+}
+
+function checkLabelMap(value: unknown): Map<number, number> {
+  if (!(value instanceof Map)) {
+    throw new Error('derived proof value: label map is not a CBOR map');
+  }
+  const labels = new Set<number>();
+  for (const [k, v] of value as Map<unknown, unknown>) {
+    if (!isIndex(k) || !isIndex(v)) {
+      throw new Error('derived proof value: label map entries must be non-negative integers');
+    }
+    if (labels.has(v)) {
+      throw new Error(`derived proof value: label map maps two blank nodes to b${v}`);
+    }
+    labels.add(v);
+  }
+  return value as Map<number, number>;
+}
+
+function checkIndexes(value: unknown, name: string): number[] {
+  if (!Array.isArray(value) || !value.every(isIndex)) {
+    throw new Error(`derived proof value: ${name} must be an array of non-negative integers`);
+  }
+  const indexes: number[] = value;
+  if (indexes.some((x, i) => i > 0 && x <= indexes[i - 1]!)) {
+    throw new Error(`derived proof value: ${name} is not strictly ascending`);
+  }
+  return indexes;
+}
+
+/**
+ * Some implementations encode byte strings as CBOR tag 64 (an RFC 8746 typed
+ * array of uint8) instead of major type 2. The cryptosuite accepts both, so
+ * this does too.
+ */
+const CBOR_TAGS: Array<(inner: unknown) => unknown> = [];
+CBOR_TAGS[64] = inner => inner;
+
+/** Decodes a proof value to its 5-element CBOR array, after checking the tag prefix. */
+function decodeProofValue(proofValue: string, prefix: Uint8Array, kind: string): unknown[] {
   if (typeof proofValue !== 'string' || !proofValue.startsWith('u')) {
     throw new Error('proofValue is not a base64url multibase string');
   }
@@ -361,5 +436,14 @@ function decodeProofValue(proofValue: string, prefix: Uint8Array, kind: string):
   if (!bytesEqual(bytes.subarray(0, prefix.length), prefix)) {
     throw new Error(`proofValue is not a ${kind} proof`);
   }
-  return bytes.subarray(prefix.length);
+  let decoded: unknown;
+  try {
+    decoded = cborg.decode(bytes.subarray(prefix.length), {useMaps: true, tags: CBOR_TAGS});
+  } catch (e) {
+    throw new Error(`${kind} proof value is not valid CBOR: ${(e as Error).message}`);
+  }
+  if (!Array.isArray(decoded) || decoded.length !== 5) {
+    throw new Error(`${kind} proof value is not a 5-element CBOR array`);
+  }
+  return decoded;
 }

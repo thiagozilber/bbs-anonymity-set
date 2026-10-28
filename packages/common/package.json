@@ -14,7 +14,7 @@
     "@digitalbazaar/security-context": "^1.0.1",
     "@digitalbazaar/vc": "7.3.0",
     "base64url-universal": "^2.0.0",
-    "cborg": "^6.1.4"
+    "cborg": "4.5.8"
   },
   "exports": {
     ".": "./src/index.ts"
