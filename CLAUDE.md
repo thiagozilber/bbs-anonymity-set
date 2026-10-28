@@ -15,9 +15,9 @@ there is no classifier. The ML branch and all network-layer (Layer 1) features
 are deferred to TCC II.
 
 Planned components: population generator (Python), Issuer, Prover, Verifier
-observer, analysis (Python). The Issuer, Prover (`check`, `present`) and
-Verifier observer are done. The population generator and analysis (Python,
-under `analysis/`) are next.
+observer, analysis (Python). The population generator, Issuer, Prover
+(`check`, `present`) and Verifier observer are done. The partition analysis
+(Python, under `analysis/`) is next.
 
 ## Decisions
 
@@ -52,6 +52,13 @@ under `analysis/`) are next.
   connections, so a transport can be added for TCC II without changing it.
   The disclosure policy is defined by us in config, modeled on DCQL
   (including `claim_sets`).
+- **Population generator.** Python (stdlib only) in `analysis/`, managed with
+  uv. Distributions come from a TOML config; the default
+  (`configs/populations/eu-default.toml`) uses EU member states, since PIDs
+  are issued by them, and its numbers are plausible but not sourced. Optional
+  residence attributes are nested (city only with country). Populations are
+  prefix-consistent: record i is seeded by (seed, i), so curves over N differ
+  only by the added Provers.
 - **Issuer.** Batch CLI, not a service. All Issuer-side policy lives in one
   TOML file per sweep point.
 - **Prover presentations.** Disclosure policy is one TOML file per sweep
@@ -103,7 +110,8 @@ under `analysis/`) are next.
 
 ## Conventions
 
-- `npm run check` (typecheck and tests) before every commit.
+- `npm run check` (typecheck, TypeScript tests, Python tests) before every
+  commit.
 - Node runs the TypeScript directly, so code must be erasable syntax only (no
   enums, namespaces or parameter properties); `erasableSyntaxOnly` enforces it.
   Relative imports use `.ts` extensions.

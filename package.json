@@ -16,9 +16,11 @@
   "scripts": {
     "typecheck": "tsc -p .",
     "test": "vitest run",
-    "check": "npm run typecheck && npm test",
+    "check": "npm run typecheck && npm test && npm run test:py",
     "issuer": "node packages/issuer/src/cli.ts",
     "prover": "node packages/prover/src/cli.ts",
-    "verifier": "node packages/verifier/src/cli.ts"
+    "verifier": "node packages/verifier/src/cli.ts",
+    "test:py": "uv run --project analysis pytest analysis",
+    "popgen": "uv run --project analysis popgen"
   }
 }

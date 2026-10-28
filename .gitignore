@@ -4,3 +4,4 @@ node_modules/
 *.key.json
 __pycache__/
 .venv/
+.pytest_cache/

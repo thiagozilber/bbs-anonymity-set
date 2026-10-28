@@ -1,0 +1,103 @@
+# Default population config for the population generator (analysis/popgen).
+#
+# PLAUSIBLE, NOT SOURCED. Every number here was chosen to look reasonable for
+# PID holders in a few EU member states (weights roughly follow country
+# population). None comes from a cited statistic. Replace them with sourced
+# figures before results drawn from this config go into the thesis.
+#
+# Weights are normalized, so they need not sum to 1.
+
+# Reference date for age_over_18.
+as_of = 2026-10-01
+
+# Country whose PID Provider issued the credential.
+[issuing_country]
+DE = 84
+FR = 68
+IT = 59
+ES = 48
+PL = 37
+PT = 10
+
+[nationality]
+# Probability that nationality equals the issuing country. Otherwise it is
+# drawn from the other issuing countries, by weight.
+same_as_issuing = 0.92
+
+# Age on as_of, in inclusive year bands.
+[age]
+bands = [
+  {min = 0, max = 17, weight = 18},
+  {min = 18, max = 29, weight = 14},
+  {min = 30, max = 44, weight = 20},
+  {min = 45, max = 64, weight = 27},
+  {min = 65, max = 95, weight = 21},
+]
+
+[residence]
+# resident_country is present with this probability; resident_city only when
+# resident_country is, with probability city_present.
+country_present = 0.8
+same_as_issuing = 0.97
+city_present = 0.6
+
+[residence.cities.DE]
+Berlin = 37
+Hamburg = 19
+"München" = 15
+"Köln" = 11
+
+[residence.cities.FR]
+Paris = 21
+Marseille = 9
+Lyon = 5
+Toulouse = 5
+
+[residence.cities.IT]
+Roma = 28
+Milano = 14
+Napoli = 9
+Torino = 8
+
+[residence.cities.ES]
+Madrid = 33
+Barcelona = 16
+Valencia = 8
+Sevilla = 7
+
+[residence.cities.PL]
+Warszawa = 18
+"Kraków" = 8
+"Łódź" = 7
+"Wrocław" = 6
+
+[residence.cities.PT]
+Lisboa = 5
+Porto = 2
+"Vila Nova de Gaia" = 2
+Amadora = 2
+
+# Names are drawn uniformly per issuing country.
+[names.DE]
+family = ["Müller", "Schmidt", "Schneider", "Fischer", "Weber", "Meyer"]
+given = ["Anna", "Lukas", "Lena", "Paul", "Marie", "Jonas"]
+
+[names.FR]
+family = ["Martin", "Bernard", "Dubois", "Thomas", "Robert", "Richard"]
+given = ["Camille", "Louis", "Léa", "Gabriel", "Manon", "Hugo"]
+
+[names.IT]
+family = ["Rossi", "Russo", "Ferrari", "Esposito", "Bianchi", "Romano"]
+given = ["Giulia", "Francesco", "Sofia", "Alessandro", "Aurora", "Lorenzo"]
+
+[names.ES]
+family = ["García", "Rodríguez", "González", "Fernández", "López", "Martínez"]
+given = ["Lucía", "Hugo", "Martina", "Mateo", "Sofía", "Martín"]
+
+[names.PL]
+family = ["Nowak", "Kowalski", "Wiśniewski", "Wójcik", "Kowalczyk", "Kamiński"]
+given = ["Zofia", "Jan", "Hanna", "Antoni", "Maja", "Jakub"]
+
+[names.PT]
+family = ["Silva", "Santos", "Ferreira", "Pereira", "Oliveira", "Costa"]
+given = ["Maria", "João", "Beatriz", "Francisco", "Leonor", "Santiago"]

@@ -14,20 +14,51 @@ through Digital Bazaar's implementation.
 | `packages/issuer` | Issuer CLI: key generation and issuance | done |
 | `packages/prover` | Prover CLI: base-proof check and presentation generation under a disclosure policy | done |
 | `packages/verifier` | Verifier observer CLI: verifies presentations and records every channel a Verifier sees | done |
-| `analysis/` | Python: population generator, partition analysis | not started |
-| `configs/examples/` | Example deployment policies | |
+| `analysis/` | Python: population generator (done), partition analysis (not started) | generator only |
+| `configs/examples/` | Example Issuer and disclosure policies | |
+| `configs/populations/` | Population generator configs | |
 | `data/examples/` | Example population | |
 
 ## Build and test
 
 Needs Node.js 22.18 or newer, which runs TypeScript directly (type
-stripping), so there is no build step.
+stripping), so there is no build step, and [uv](https://docs.astral.sh/uv/)
+for the Python under `analysis/` (Python 3.11 or newer).
 
 ```sh
 npm install
-npm run check        # typecheck, then all tests
-npm test             # tests only (vitest)
+uv sync --project analysis
+npm run check        # typecheck, TypeScript tests (vitest), Python tests (pytest)
+npm test             # TypeScript tests only
+npm run test:py      # Python tests only
 ```
+
+## Population generator
+
+```sh
+npm run popgen -- --config configs/populations/eu-default.toml --n 1000 --seed 1 --out out/population.jsonl
+```
+
+Writes a synthetic population in the format `issuer issue` reads, plus
+`<out>.meta.json` recording the config path and SHA-256, the seed and N.
+Populations are prefix-consistent: record i depends only on the config, the
+seed and i, so the population of size N is the first N records of any larger
+one. Prover ids have a fixed width (`p0000000`) so they do not change with N.
+
+The config (`configs/populations/eu-default.toml`) sets:
+
+- `as_of`: reference date for `age_over_18`;
+- `issuing_country`: weights per country;
+- `nationality.same_as_issuing`: probability that nationality equals the
+  issuing country (otherwise another issuing country, by weight);
+- `age.bands`: inclusive age bands with weights; `birth_date` is uniform
+  within the band and `age_over_18` is computed from it;
+- `residence`: `country_present`, `same_as_issuing`, `city_present`, and city
+  weights per country. Optional attributes are nested: `resident_city` is
+  only drawn when `resident_country` is present;
+- `names`: family and given names per issuing country, drawn uniformly.
+
+The default numbers are plausible but **not sourced**; the config says so.
 
 ## Issuer
 
