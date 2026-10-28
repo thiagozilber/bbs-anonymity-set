@@ -324,9 +324,14 @@ export async function deriveCredential(args: {
 /** Verifies a derived credential with the library. */
 export async function verifyDerivedCredential(
   credential: SignedCredential,
-  documentLoader: DocumentLoader
+  documentLoader: DocumentLoader,
+  expectedPresentationHeader?: Uint8Array
 ): Promise<{verified: boolean; error?: string}> {
-  const suite = new DataIntegrityProof({cryptosuite: createVerifyCryptosuite()});
+  const suite = new DataIntegrityProof({
+    cryptosuite: createVerifyCryptosuite(
+      expectedPresentationHeader === undefined ? {} : {expectedPresentationHeader}
+    )
+  });
   const result = await vc.verifyCredential({credential, suite, documentLoader});
   const error = result.error?.errors?.map(e => e.message).join('; ') ?? result.error?.message;
   return error === undefined ? {verified: result.verified} : {verified: result.verified, error};

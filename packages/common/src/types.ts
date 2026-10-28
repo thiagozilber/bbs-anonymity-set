@@ -68,3 +68,21 @@ export interface CredentialRecord {
   /** The credential with its bbs-2023 base proof. */
   credential: SignedCredential;
 }
+
+/**
+ * One presentation, as written by `prover present`. The Verifier observer
+ * reads only `presentation` and `verifier_nonce`, which a real Verifier has;
+ * the other fields are ground truth for the analysis.
+ */
+export interface PresentationRecord {
+  prover_id: string;
+  key_id: string;
+  /** 0-based index among the presentations made from this credential. */
+  presentation_index: number;
+  /** Index of the presented option in the policy's claim_sets; null without claim_sets. */
+  claim_set: number | null;
+  /** Hex. Only with presentation header mode "nonce": the Verifier's nonce. */
+  verifier_nonce?: string;
+  /** The derived credential with its bbs-2023 disclosure proof. */
+  presentation: SignedCredential;
+}

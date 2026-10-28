@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@bbs-anonymity-set/common": "*"
+    "@bbs-anonymity-set/common": "*",
+    "smol-toml": "^1.9.1"
   },
   "bin": {
     "prover": "./src/cli.ts"

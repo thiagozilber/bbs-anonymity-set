@@ -15,9 +15,8 @@ there is no classifier. The ML branch and all network-layer (Layer 1) features
 are deferred to TCC II.
 
 Planned components: population generator (Python), Issuer, Prover, Verifier
-observer, analysis (Python). The Issuer is done; the Prover has only `check`.
-Presentation generation (Prover `derive` under a disclosure policy) is next,
-then the Verifier observer.
+observer, analysis (Python). The Issuer and Prover (`check`, `present`) are
+done. The Verifier observer is next.
 
 ## Decisions
 
@@ -54,6 +53,13 @@ then the Verifier observer.
   (including `claim_sets`).
 - **Issuer.** Batch CLI, not a service. All Issuer-side policy lives in one
   TOML file per sweep point.
+- **Prover presentations.** Disclosure policy is one TOML file per sweep
+  point. The Prover follows DCQL's recommendation and presents the first
+  `claim_sets` option it can satisfy; one that satisfies none makes no
+  presentation, which is recorded as an outcome. Presentation header modes:
+  `empty`, `random` (Prover-chosen), `nonce` (Verifier-chosen, recorded as
+  `verifier_nonce`), `fixed` (reuse). Presentations per credential are
+  configurable, default 1.
 - **Ground truth.** `prover_id` travels with every record for the analysis and
   is never signed.
 

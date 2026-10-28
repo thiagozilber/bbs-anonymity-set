@@ -12,7 +12,7 @@ through Digital Bazaar's implementation.
 |---|---|---|
 | `packages/common` | Types shared by all roles (key files, population and credential records), the JSON-LD context and offline document loader, and the typed wrappers over Digital Bazaar's libraries | done |
 | `packages/issuer` | Issuer CLI: key generation and issuance | done |
-| `packages/prover` | Prover CLI: base-proof check; presentation generation under a disclosure policy to follow | `check` only |
+| `packages/prover` | Prover CLI: base-proof check and presentation generation under a disclosure policy | done |
 | `packages/verifier` | Presentation verification and observation-tuple logging | not started |
 | `analysis/` | Python: population generator, partition analysis | not started |
 | `configs/examples/` | Example deployment policies | |
@@ -61,6 +61,53 @@ Recomputes each base proof's BBS header and messages from the credential, runs
 the draft's `Verify`, lists each failure with its `prover_id`, and exits
 non-zero if any fail. This is not presentation verification, which belongs to
 the Verifier.
+
+```sh
+# Answer a Verifier's query from each credential.
+npm run prover -- present --policy configs/examples/age-check.toml --public-key out/issuer-0.pub.json \
+                          --credentials out/credentials.jsonl --out out/presentations.jsonl
+```
+
+Derives `bbs-2023` disclosure proofs under the disclosure policy, checks each
+with the library's verifier unless `--no-verify` is passed, and prints the
+number of presentations per claim set, per U and per disclosed message count.
+Provers that cannot answer the query are listed with the reason and make no
+presentation; that is an outcome, not an error.
+
+### Disclosure policy (`--policy`)
+
+What the Verifier asks for and how the Prover answers, in one TOML file per
+sweep point. See `configs/examples/age-check.toml`.
+
+- `query`: a subset of a DCQL Credential Query (OpenID4VP §6) for one
+  credential.
+  - `claims`: each with `id`, `path` (a claims path pointer of strings and
+    non-negative integers) and optional `values`. A claim whose value is not
+    one of `values` counts as absent.
+  - `claim_sets`: alternatives in the Verifier's order of preference. The
+    Prover presents the first option it can satisfy.
+  - Without `claim_sets`, every claim is required. Without `claims`, only the
+    mandatory statements are disclosed.
+- `presentation.count`: presentations per credential (default 1).
+- `presentation.header`: the presentation header.
+  - `empty` (default);
+  - `random`: 32 fresh octets per proof, chosen by the Prover;
+  - `nonce`: 32 fresh octets per proof, chosen by the Verifier and recorded
+    as `verifier_nonce`;
+  - `fixed`: the same value (`header_value`, hex) in every proof, which
+    models presentation header reuse.
+
+### Presentations (output)
+
+One JSON object per line. The Verifier observer reads only `presentation`
+and `verifier_nonce`, which a real Verifier has; `prover_id`,
+`presentation_index` and `claim_set` are ground truth for the analysis.
+
+```json
+{"prover_id": "p0001", "key_id": "issuer-0", "presentation_index": 0, "claim_set": 0,
+ "verifier_nonce": "7b67...", "presentation": {"credentialSubject": {"issuing_country": "BR", "age_over_18": true,
+ "resident_country": "BR"}, "proof": {"cryptosuite": "bbs-2023", "proofValue": "u2V0D..."}, "...": "..."}}
+```
 
 ## Issuer details
 
@@ -125,8 +172,9 @@ ground-truth label for the analysis and is never signed.
   the header's dependence on content are stable; individual header values and
   index sets are not.
 - **Performance.** On a 2-core VM, about 60 ms per credential without the
-  check and 140 ms with it; `prover check` about 85 ms per credential. Not
-  parallelized yet.
+  check and 140 ms with it; `prover check` about 85 ms per credential;
+  `prover present` about 150 ms per presentation without verification and
+  280 ms with it. Not parallelized yet.
 
 ### Binding channels
 
@@ -139,4 +187,5 @@ ground-truth label for the analysis and is never signed.
   issuing country.
 - **Index sets.** The same shuffle changes the canonical order of the N-Quads,
   so message indexes differ across credentials and stay fixed across one
-  credential's presentations (spec §6.2.2).
+  credential's presentations (spec §6.2.2). The derived proof's label map is
+  also the same in every presentation of a credential.

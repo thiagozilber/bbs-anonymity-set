@@ -1,0 +1,34 @@
+# Example disclosure policy: an age check that also asks where the Prover
+# lives, preferring the coarser attribute.
+#
+# The query is a subset of a DCQL Credential Query (OpenID4VP §6). Each point
+# in a parameter sweep is one file like this.
+
+[query]
+# Alternatives in the Verifier's order of preference. The Prover presents the
+# first option it can satisfy (DCQL §6.4.1). A Prover that satisfies none
+# makes no presentation.
+claim_sets = [["adult", "country"], ["adult", "city"]]
+
+[[query.claims]]
+id = "adult"
+path = ["credentialSubject", "age_over_18"]
+# The claim counts as present only with one of these values.
+values = [true]
+
+[[query.claims]]
+id = "country"
+path = ["credentialSubject", "resident_country"]
+
+[[query.claims]]
+id = "city"
+path = ["credentialSubject", "resident_city"]
+
+[presentation]
+# Presentations per credential. One is enough for the partition; more shows
+# that a credential's index set is the same in every presentation.
+count = 1
+# "empty", "random" (Prover-chosen, fresh per proof), "nonce" (Verifier-chosen,
+# fresh per proof, recorded as verifier_nonce) or "fixed" (same value for every
+# proof; set header_value to the hex value).
+header = "nonce"
