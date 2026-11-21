@@ -172,6 +172,20 @@ describe('binding channels', () => {
     expect([...headerByLabel.values()]).not.toContain(pt);
   });
 
+  it('identical mandatory content splits into at most (blank nodes)! headers', async () => {
+    const credentials = await Promise.all(Array.from({length: 24}, () => issue(ANA)));
+    const inspected = await Promise.all(credentials.map(c => inspectBaseProof(c, loader)));
+    // Both blank nodes (credential and subject) appear in the BBS messages.
+    const blankNodes = new Set(inspected.flatMap(i => i.messages.flatMap(m => m.match(/_:[A-Za-z0-9]+/g) ?? [])));
+    expect(blankNodes.size).toBe(2);
+    const bound = [...Array(blankNodes.size).keys()].reduce((f, k) => f * (k + 1), 1);
+    const headers = new Set(inspected.map(i => toHex(i.header)));
+    expect(headers.size).toBeLessThanOrEqual(bound);
+    // The shuffle does split identical content: with 24 credentials and two
+    // equally likely orderings, all landing on one has probability 2^-23.
+    expect(headers.size).toBeGreaterThan(1);
+  });
+
   it('HMAC key is fresh per credential, so issuance is not deterministic', async () => {
     const again = await issue(ANA);
     expect(again.proof.proofValue).not.toBe(signed.proof.proofValue);

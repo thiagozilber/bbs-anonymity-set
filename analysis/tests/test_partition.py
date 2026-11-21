@@ -58,6 +58,38 @@ def test_metrics():
     assert e.unique_fraction == pytest.approx(1 / 3)
 
 
+def test_known_answer_all_provers_identical():
+    n = 16
+    part = pa.partition([obs(f"p{i}") for i in range(n)], CORE, "class")
+    assert part.anonymity_sets() == [n] * n
+    m = pa.metrics(part, n)
+    assert (m.classes, m.unique_fraction, m.min_set, m.max_set) == (1, 0.0, n, n)
+    assert m.mean_log2_set == pytest.approx(math.log2(n))
+    assert m.degree == pytest.approx(1.0)
+
+
+def test_known_answer_all_provers_distinct():
+    n = 16
+    part = pa.partition([obs(f"p{i}", header=f"h{i}") for i in range(n)], CORE, "class")
+    assert part.anonymity_sets() == [1] * n
+    m = pa.metrics(part, n)
+    assert (m.classes, m.unique_fraction, m.min_set, m.max_set) == (n, 1.0, 1, 1)
+    assert m.mean_log2_set == 0.0
+    assert m.degree == 0.0
+
+
+def test_ground_truth_is_never_used_to_group():
+    records = [obs("p1"), obs("p2"), obs("p3", u=2), none("p4")]
+    renamed = json.loads(json.dumps(records))
+    for i, r in enumerate(renamed):
+        r["truth"]["prover_id"] = f"other-{i}"
+        r["truth"]["presentation_index"] = 9
+    for mode in pa.NON_ANSWER_MODES:
+        a, b = pa.partition(records, CORE, mode), pa.partition(renamed, CORE, mode)
+        assert a.keys == b.keys
+        assert a.anonymity_sets() == b.anonymity_sets()
+
+
 def test_metrics_edge_cases():
     m = pa.metrics(pa.partition([none("p1")], CORE, "excluded"), 1)
     assert (m.provers, m.records, m.degree) == (0, 0, None)

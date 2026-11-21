@@ -161,6 +161,18 @@ describe('observe', () => {
     expect(await observe(p!, 'v0', otherLoader)).toMatchObject({ok: false});
   });
 
+  it('keeps ground truth out of the observation', async () => {
+    const [p] = await presentations();
+    const sentinels = {prover_id: 'prover-sentinel-7f3a', key_id: 'key-sentinel-9c1e'};
+    const r = await observed({...p!, ...sentinels});
+    expect(r.truth).toMatchObject(sentinels);
+    const observation = JSON.stringify(r.observation);
+    for (const s of Object.values(sentinels)) expect(observation).not.toContain(s);
+    // The observation is a function of the presentation alone.
+    const other = await observed({...p!, prover_id: 'p2', presentation_index: 7});
+    expect(other.observation).toEqual(r.observation);
+  });
+
   it('sees the same constants in every presentation for the same request', async () => {
     const [a, b] = await Promise.all((await presentations()).map(p => observed(p)));
     for (const field of ['header', 'label_map', 'revealed_nquads', 'selective_indexes', 'mandatory_indexes', 'u', 'total_statements'] as const) {
