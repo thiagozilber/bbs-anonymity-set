@@ -1,0 +1,7 @@
+{
+  "key_id": "k",
+  "ciphersuite": "BLS12-381-SHA-256",
+  "public_key": "97b636876601d312c821aec4566b8c3789a9f1b41decdc0ecdcb6a2c1b997718f0c5c0d9ce90984e72cd656eee7b0a140eb79ebe5287a20ba2f747afac3bd12cd311edaa83738c043b2cf4abfaf56590f4bf2a59e01eb5e03b62aef4d33a3182",
+  "controller": "https://issuer.example/issuers/k",
+  "verification_method": "https://issuer.example/issuers/k#zUC796gXAGcqgAjxmf1xZHYTNvkQCm15iZuVa4Z89SABUm6GabQjSmDBjxmk7rP1gmVDqTjyzBxzvucZJQXYBVqTE4xJATrwVmqjVHPKqR7q9WMmpw47Us2buorgyWppRanpyBP"
+}

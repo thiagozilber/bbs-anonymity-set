@@ -1,0 +1,34 @@
+{
+  "observations": "/home/claude/runs/r10/o09.jsonl",
+  "observations_sha256": "98f3c9991b01b9a90bf4feda1beedba565defdcaeb9e3d0013e36b5f80286b50",
+  "config": "/home/claude/thiagozilber/bbs-anonymity-set/configs/analysis/default.toml",
+  "config_sha256": "ab6019270dedaf8b62bbcb2e5c74d0c96392834508c5ac8379489a0fe1b3a71c",
+  "verifier_id": "v0",
+  "tuples": {
+    "core": [
+      "u",
+      "total_statements",
+      "selective_indexes",
+      "header"
+    ],
+    "core_values": [
+      "u",
+      "total_statements",
+      "selective_indexes",
+      "header",
+      "disclosed"
+    ],
+    "full": [
+      "u",
+      "total_statements",
+      "selective_indexes",
+      "mandatory_indexes",
+      "header",
+      "label_map",
+      "revealed_nquads",
+      "issuer",
+      "verification_method",
+      "disclosed"
+    ]
+  }
+}

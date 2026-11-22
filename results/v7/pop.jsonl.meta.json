@@ -1,0 +1,7 @@
+{
+  "generator_version": 1,
+  "config": "/home/claude/thiagozilber/bbs-anonymity-set/configs/populations/eu-default.toml",
+  "config_sha256": "e96300f3872aea9d21ff16e51666ada900a3bf892d328297e6dd6c4720f1daa2",
+  "seed": 7,
+  "n": 200
+}
